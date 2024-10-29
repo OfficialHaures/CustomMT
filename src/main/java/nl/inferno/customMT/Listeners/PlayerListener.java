@@ -1,22 +1,30 @@
-
 package nl.inferno.customMT.Listeners;
 
+import nl.inferno.customMT.CustomMT;
 import nl.inferno.customMT.Database.SqlConnecter;
-import org.bukkit.ChatColor;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.plugin.Plugin;
 
 public class PlayerListener implements Listener {
 
-    private SqlConnecter sqlConnecter;
+    private final SqlConnecter sqlConnecter;
+    private final CustomMT plugin;
+    private final FileConfiguration config;
 
-    public PlayerListener(SqlConnecter sqlConnecter) {
+    public PlayerListener(SqlConnecter sqlConnecter, CustomMT plugin) {
         this.sqlConnecter = sqlConnecter;
+        this.plugin = plugin;
+        this.config = plugin.getConfig();
     }
 
     @EventHandler
@@ -34,8 +42,19 @@ public class PlayerListener implements Listener {
                         "ON DUPLICATE KEY UPDATE username = ?, ip_address = ?, last_join = NOW()",
                 uuid, username, ipAdress, username, ipAdress
         );
-        if(!player.hasPlayedBefore()){
-            player.sendMessage(ChatColor.translateAlternateColorCodes('&', "Welkom bij InfernoMC!"));
+
+        if(!player.hasPlayedBefore()) {
+            Location spawn = new Location(
+                    Bukkit.getWorld(config.getString("spawn-location.world")),
+                    config.getDouble("spawn-location.x"),
+                    config.getDouble("spawn-location.y"),
+                    config.getDouble("spawn-location.z"),
+                    (float) config.getDouble("spawn-location.yaw"),
+                    (float) config.getDouble("spawn-location.pitch")
+            );
+
+            player.teleport(spawn);
+            player.sendMessage("§aWelkom bij InfernoMC!");
         }
     }
 
@@ -63,4 +82,3 @@ public class PlayerListener implements Listener {
         }
     }
 }
-
