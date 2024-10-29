@@ -1,0 +1,10 @@
+name: CustomMT
+version: '1.0'
+main: nl.inferno.customMT.CustomMT
+api-version: '1.19'
+author: Inferno
+commands:
+  politie:
+    description: Only for Police
+  gemeente:
+    description: Gemeente Main Duty
