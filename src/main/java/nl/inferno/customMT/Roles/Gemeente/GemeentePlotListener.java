@@ -9,7 +9,7 @@ public class GemeentePlotListener implements Listener {
 
     @EventHandler
     public void onMenuClick(InventoryClickEvent event) {
-        if (!event.getView().getTitle().equals("§6Plot Beheer")) return;
+        if (!event.getView().getTitle().equals("§6Plot Manager")) return;
 
         event.setCancelled(true);
 
@@ -19,10 +19,10 @@ public class GemeentePlotListener implements Listener {
         String itemName = event.getCurrentItem().getItemMeta().getDisplayName();
 
         switch (itemName) {
-            case "§aPlot Aanmaken" -> player.sendMessage("§aSelecteer eerst twee punten met de plot wand!");
-            case "§cPlot Verwijderen" -> player.sendMessage("§eJe staat op plot: [plotnaam]");
-            case "§ePlot Informatie" -> player.sendMessage("§6Loading plot info...");
-            case "§6Alle Plots" -> player.sendMessage("§ePlots worden geladen...");
+            case "§aVoeg Eigenaar Toe" -> player.sendMessage("§aKies een speler om toe te voegen");
+            case "§cVerwijder Eigenaar" -> player.sendMessage("§cKies een eigenaar om te verwijderen");
+            case "§aVoeg Lid Toe" -> player.sendMessage("§aKies een speler om als lid toe te voegen");
+            case "§6Plot Informatie" -> player.sendMessage("§6Loading plot info...");
         }
     }
 }

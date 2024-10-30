@@ -20,12 +20,10 @@ public class GemeenteDuty implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player)) {
+        if (!(sender instanceof Player player)) {
             sender.sendMessage("§cDit command kan alleen door spelers worden gebruikt!");
             return true;
         }
-
-        Player player = (Player) sender;
 
         if (!player.hasPermission("custommt.gemeente")) {
             player.sendMessage("§cJe hebt geen toegang tot dit command!");
@@ -43,11 +41,9 @@ public class GemeenteDuty implements CommandExecutor {
 
     private void addToDuty(Player player) {
         inDuty.add(player.getUniqueId());
-
-        // Clear inventory
         player.getInventory().clear();
 
-        // Give gemeente armor
+        // Gemeente uniform
         ItemStack helmet = new ItemStack(Material.LEATHER_HELMET);
         ItemStack chestplate = new ItemStack(Material.LEATHER_CHESTPLATE);
         ItemStack leggings = new ItemStack(Material.LEATHER_LEGGINGS);
@@ -56,7 +52,7 @@ public class GemeenteDuty implements CommandExecutor {
         LeatherArmorMeta meta;
         for (ItemStack item : new ItemStack[]{helmet, chestplate, leggings, boots}) {
             meta = (LeatherArmorMeta) item.getItemMeta();
-            meta.setColor(Color.fromRGB(255, 140, 0)); // Orange color
+            meta.setColor(Color.fromRGB(255, 140, 0));
             meta.setDisplayName("§6Gemeente Uniform");
             item.setItemMeta(meta);
         }
@@ -66,17 +62,15 @@ public class GemeenteDuty implements CommandExecutor {
         player.getInventory().setLeggings(leggings);
         player.getInventory().setBoots(boots);
 
-        // Give gemeente tools
+        // Gemeente tools
+// Inside addToDuty method
         ItemStack plotManager = createCustomItem(
                 Material.BOOK,
                 "§6Plot Manager",
-                "§7Rechtsklik om plots te beheren",
-                "§7- Voeg eigenaren toe",
-                "§7- Verwijder eigenaren",
-                "§7- Beheer plot rechten"
+                "§7Rechtsklik om plots te beheren"
         );
 
-        ItemStack plotWand = createCustomItem(
+        ItemStack plotSelector = createCustomItem(
                 Material.GOLDEN_AXE,
                 "§6Plot Selector",
                 "§7Linkerclick: Selecteer punt 1",
@@ -91,13 +85,12 @@ public class GemeenteDuty implements CommandExecutor {
 
         ItemStack plotCreate = createCustomItem(
                 Material.EMERALD,
-                "§6Plot Aanmaken",
+                "§aPlot Aanmaken",
                 "§7Rechtsklik om een plot aan te maken"
         );
 
-        // Add items to inventory
         player.getInventory().setItem(0, plotManager);
-        player.getInventory().setItem(1, plotWand);
+        player.getInventory().setItem(1, plotSelector);
         player.getInventory().setItem(2, plotInfo);
         player.getInventory().setItem(3, plotCreate);
 
@@ -121,13 +114,5 @@ public class GemeenteDuty implements CommandExecutor {
 
     public boolean isInDuty(UUID uuid) {
         return inDuty.contains(uuid);
-    }
-
-    public void openPlotManager(Player player) {
-        GemeenteGui.openPlotManager(player);
-    }
-
-    public void openAdministrationMenu(Player player) {
-        GemeenteGui.openAdministrationMenu(player);
     }
 }

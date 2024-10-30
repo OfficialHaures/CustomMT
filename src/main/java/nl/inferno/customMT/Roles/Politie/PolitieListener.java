@@ -5,6 +5,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -32,7 +34,7 @@ public class PolitieListener implements Listener {
         Player player = event.getPlayer();
         ItemStack item = player.getInventory().getItemInMainHand();
 
-        if (!politieDuty.isInDuty(player.getUniqueId())) return;
+        if (!player.hasPermission("custommt.police.tazer")) return;
         if (item == null || !item.hasItemMeta()) return;
         if (!item.getItemMeta().getDisplayName().equals("§eTazer")) return;
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
@@ -83,27 +85,24 @@ public class PolitieListener implements Listener {
             }
         }.runTaskTimer(politieDuty.getPlugin(), 0L, 1L);
 
-        // Set cooldown
+        // Set cooldown and play sound
         tazerCooldown.put(player.getUniqueId(), System.currentTimeMillis());
-
-        // Play sound effect
         player.playSound(player.getLocation(), Sound.ENTITY_BEE_HURT, 1.0f, 2.0f);
     }
 
     private void hitPlayer(Player target) {
-        // Visual effects
+        // Visual and sound effects
         target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK,
                 target.getLocation().add(0, 1, 0), 50, 0.5, 0.5, 0.5, 0.1);
         target.getWorld().playSound(target.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.0f, 1.0f);
 
-        // Effects
+        // Apply effects
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 100, 7));
         target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP, 100, 128));
         target.setVelocity(new Vector(0, 0, 0));
 
         // Track tazed state
         tazedPlayers.put(target.getUniqueId(), System.currentTimeMillis());
-
         target.sendMessage("§cJe bent getazerd!");
     }
 
@@ -123,9 +122,29 @@ public class PolitieListener implements Listener {
             tazedPlayers.remove(player.getUniqueId());
         }
     }
+    @EventHandler
+    public void onHandcuffLeftClick(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player player)) return;
+        if (!(event.getEntity() instanceof Player target)) return;
+
+        ItemStack item = player.getInventory().getItemInMainHand();
+        if (!politieDuty.isInDuty(player.getUniqueId())) return;
+        if (item == null || !item.hasItemMeta()) return;
+        if (!item.getItemMeta().getDisplayName().equals("§7Handboeien")) return;
+
+        event.setCancelled(true);
+
+        if (!politieDuty.isHandcuffed(target.getUniqueId())) {
+            politieDuty.setCuffer(target.getUniqueId(), player.getUniqueId());
+            politieDuty.toggleHandcuffs(target.getUniqueId());
+            target.sendMessage("§cJe bent geboeid!");
+            player.sendMessage("§aJe hebt " + target.getName() + " geboeid!");
+            target.getWorld().playSound(target.getLocation(), Sound.BLOCK_CHAIN_PLACE, 1.0f, 1.0f);
+        }
+    }
 
     @EventHandler
-    public void onHandcuff(PlayerInteractEntityEvent event) {
+    public void onHandcuffRightClick(PlayerInteractEntityEvent event) {
         if (!(event.getRightClicked() instanceof Player target)) return;
 
         Player player = event.getPlayer();
@@ -135,16 +154,41 @@ public class PolitieListener implements Listener {
         if (item == null || !item.hasItemMeta()) return;
         if (!item.getItemMeta().getDisplayName().equals("§7Handboeien")) return;
 
-        politieDuty.toggleHandcuffs(target.getUniqueId());
-
-        if (politieDuty.isHandcuffed(target.getUniqueId())) {
-            target.sendMessage("§cJe bent geboeid!");
-            player.sendMessage("§aJe hebt " + target.getName() + " geboeid!");
-            target.getWorld().playSound(target.getLocation(), Sound.BLOCK_CHAIN_PLACE, 1.0f, 1.0f);
-        } else {
+        if (politieDuty.isHandcuffed(target.getUniqueId()) &&
+                politieDuty.getCuffer(target.getUniqueId()).equals(player.getUniqueId())) {
+            politieDuty.toggleHandcuffs(target.getUniqueId());
             target.sendMessage("§aJe bent niet meer geboeid!");
             player.sendMessage("§aJe hebt " + target.getName() + " ontboeid!");
             target.getWorld().playSound(target.getLocation(), Sound.BLOCK_CHAIN_BREAK, 1.0f, 1.0f);
         }
     }
+
+
+
+    @EventHandler
+    public void onHandcuffedPlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        if (!politieDuty.isHandcuffed(player.getUniqueId())) return;
+
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        if (to != null && (from.getX() != to.getX() || from.getZ() != to.getZ())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler
+    public void onHandcuffedPlayerInteract(PlayerInteractEvent event) {
+        if (politieDuty.isHandcuffed(event.getPlayer().getUniqueId())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler
+    public void onHandcuffedInventoryClick(InventoryClickEvent event) {
+        if (politieDuty.isHandcuffed(event.getWhoClicked().getUniqueId())) {
+            event.setCancelled(true);
+        }
+    }
+
 }

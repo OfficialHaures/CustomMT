@@ -73,12 +73,4 @@ public class PlayerListener implements Listener {
             event.setCancelled(true);
         }
     }
-
-    @EventHandler
-    public void onPlayerInteract(PlayerInteractEvent event) {
-        Player player = event.getPlayer();
-        if (!player.hasPermission("custommt.build.interact")) {
-            event.setCancelled(true);
-        }
-    }
 }

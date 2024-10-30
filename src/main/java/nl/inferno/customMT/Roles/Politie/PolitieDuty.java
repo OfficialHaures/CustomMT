@@ -12,14 +12,14 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.plugin.Plugin;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 public class PolitieDuty implements CommandExecutor {
     private final Set<UUID> inDuty = new HashSet<>();
     private final Set<UUID> handcuffedPlayers = new HashSet<>();
+    private final Map<UUID, UUID> handcuffedBy = new HashMap<>();
     private final CustomMT plugin;
+
 
     public PolitieDuty(CustomMT plugin) {
         this.plugin = plugin;
@@ -72,9 +72,9 @@ public class PolitieDuty implements CommandExecutor {
         ItemStack ammo = new ItemStack(Material.ARROW, 64);
         ItemStack tazer = createCustomItem(Material.STICK, "§eTazer");
         ItemStack handcuffs = createCustomItem(Material.CHAIN, "§7Handboeien");
+        ItemStack policeBook = createCustomItem(Material.BOOK, "§6Politie boek");
 
-        player.getInventory().addItem(gun, ammo, tazer, handcuffs);
-
+        player.getInventory().addItem(gun, ammo, tazer, handcuffs, policeBook);
         player.sendMessage("§aJe bent nu in dienst!");
     }
 
@@ -106,7 +106,18 @@ public class PolitieDuty implements CommandExecutor {
         } else {
             handcuffedPlayers.add(uuid);
         }
+
     }
+
+
+    public void setCuffer(UUID target, UUID officer) {
+        handcuffedBy.put(target, officer);
+    }
+
+    public UUID getCuffer(UUID target) {
+        return handcuffedBy.get(target);
+    }
+
 
     public Plugin getPlugin() {
         return plugin;

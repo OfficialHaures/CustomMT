@@ -31,26 +31,6 @@ public class GemeenteGui {
         player.openInventory(gui);
     }
 
-    public static void openAdministrationMenu(Player player) {
-        Inventory gui = Bukkit.createInventory(null, 36, "§6Gemeente Administratie");
-
-        ItemStack newPlot = createGuiItem(Material.MAP, "§aNieuw Plot",
-                "§7Maak een nieuw plot aan");
-        ItemStack deletePlot = createGuiItem(Material.REDSTONE, "§cVerwijder Plot",
-                "§7Verwijder een bestaand plot");
-        ItemStack plotList = createGuiItem(Material.BOOK, "§6Plot Lijst",
-                "§7Bekijk alle plots");
-        ItemStack settings = createGuiItem(Material.COMPARATOR, "§eInstellingen",
-                "§7Beheer plot instellingen");
-
-        gui.setItem(11, newPlot);
-        gui.setItem(13, deletePlot);
-        gui.setItem(15, plotList);
-        gui.setItem(31, settings);
-
-        player.openInventory(gui);
-    }
-
     private static ItemStack createGuiItem(Material material, String name, String... lore) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
