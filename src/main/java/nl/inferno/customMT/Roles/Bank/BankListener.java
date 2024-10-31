@@ -20,22 +20,71 @@ import java.util.Map;
 import java.util.UUID;
 
 public class BankListener implements Listener {
-    private Economy economy;
-    private Map<UUID, UUID> transferTarget = new HashMap<>();
+    private final Economy economy;
+    private final Map<UUID, Double> currentAmount = new HashMap<>();
+    private final Map<UUID, TransactionType> transactionType = new HashMap<>();
 
     public BankListener(Economy economy) {
         this.economy = economy;
+    }
+
+    private enum TransactionType {
+        DEPOSIT, WITHDRAW, TRANSFER
     }
 
     @EventHandler
     public void onBankInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         if (event.getClickedBlock() == null) return;
-        if (event.getClickedBlock().getType() == Material.RED_SANDSTONE_STAIRS) {
-            openBankMenu(event.getPlayer());
-            event.setCancelled(true);
+        if (event.getClickedBlock().getType() != Material.RED_SANDSTONE_STAIRS) return;
+
+        openMainMenu(event.getPlayer());
+        event.setCancelled(true);
+    }
+
+    private void openMainMenu(Player player) {
+        Inventory menu = Bukkit.createInventory(null, 27, "§6Bank Menu");
+
+        ItemStack balance = createMenuItem(Material.GOLD_INGOT, "§6Saldo: §a$" + economy.getBalance(player),
+                "§7Je huidige saldo");
+        ItemStack deposit = createMenuItem(Material.EMERALD, "§aStorten", "§7Klik om geld te storten");
+        ItemStack withdraw = createMenuItem(Material.REDSTONE, "§cOpnemen", "§7Klik om geld op te nemen");
+        ItemStack transfer = createMenuItem(Material.PAPER, "§eOvermaken", "§7Klik om geld over te maken");
+        menu.setItem(4, balance);
+        menu.setItem(11, deposit);
+        menu.setItem(13, withdraw);
+        menu.setItem(15, transfer);
+
+        player.openInventory(menu);
+        playClickSound(player);
+    }
+
+    private void openCalculator(Player player, TransactionType type) {
+        Inventory calc = Bukkit.createInventory(null, 54, "§6Bank Calculator");
+        currentAmount.put(player.getUniqueId(), 0.0);
+        transactionType.put(player.getUniqueId(), type);
+
+        for (int i = 0; i < 10; i++) {
+            calc.setItem(28 + i, createMenuItem(Material.LIGHT_BLUE_STAINED_GLASS_PANE,
+                    "§b" + i, "§7Klik om " + i + " toe te voegen"));
         }
 
+        calc.setItem(10, createMenuItem(Material.EMERALD, "§a+$10", "§7Voeg $10 toe"));
+        calc.setItem(11, createMenuItem(Material.EMERALD, "§a+$50", "§7Voeg $50 toe"));
+        calc.setItem(12, createMenuItem(Material.EMERALD, "§a+$100", "§7Voeg $100 toe"));
+        calc.setItem(14, createMenuItem(Material.EMERALD, "§a+$500", "§7Voeg $500 toe"));
+        calc.setItem(15, createMenuItem(Material.EMERALD, "§a+$1000", "§7Voeg $1000 toe"));
+        calc.setItem(16, createMenuItem(Material.EMERALD, "§a+$5000", "§7Voeg $5000 toe"));
+
+        calc.setItem(45, createMenuItem(Material.RED_STAINED_GLASS_PANE, "§cWissen", "§7Reset bedrag"));
+        calc.setItem(49, createMenuItem(Material.GREEN_STAINED_GLASS_PANE, "§aBevestigen",
+                "§7Klik om transactie uit te voeren"));
+        calc.setItem(53, createMenuItem(Material.BARRIER, "§cTerug", "§7Terug naar hoofdmenu"));
+
+        updateAmountDisplay(calc, 4, 0.0);
+
+        player.openInventory(calc);
+        playClickSound(player);
     }
 
     @EventHandler
@@ -43,165 +92,128 @@ public class BankListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         if (event.getCurrentItem() == null) return;
         if (!event.getCurrentItem().hasItemMeta()) return;
-        if (event.getCurrentItem().getItemMeta() == null) return;
 
         String title = event.getView().getTitle();
         String itemName = event.getCurrentItem().getItemMeta().getDisplayName();
 
-        switch (title) {
-            case "§6Bank Menu" -> handleMainMenu(player, itemName);
-            case "§aStorten" -> handleDeposit(player, itemName);
-            case "§cOpnemen" -> handleWithdraw(player, itemName);
-            case "§eOverboeken" -> handleTransfer(player, itemName);
-        }
-
         event.setCancelled(true);
+
+        switch (title) {
+            case "§6Bank Menu" -> handleMainMenuClick(player, itemName);
+            case "§6Bank Calculator" -> handleCalculatorClick(player, event.getCurrentItem(), event.getInventory());
+            case "§6Overmaken" -> handleTransferClick(player, itemName);
+        }
     }
 
-    private void handleMainMenu(Player player, String itemName) {
+    private void handleMainMenuClick(Player player, String itemName) {
         switch (itemName) {
-            case "§aGeld Storten" -> openDepositMenu(player);
-            case "§cGeld Opnemen" -> openWithDrawMenu(player);
-            case "§eOverboeken" -> openTransferMenu(player);
-            case "§6Saldo Bekijken" -> showBalance(player);
+            case "§aStorten" -> openCalculator(player, TransactionType.DEPOSIT);
+            case "§cOpnemen" -> openCalculator(player, TransactionType.WITHDRAW);
+            case "§eOvermaken" -> openTransferMenu(player);
         }
     }
 
-    private void handleDeposit(Player player, String itemName) {
-        if (itemName.startsWith("§a$")) {
-            double amount = Double.parseDouble(itemName.substring(3));
-            if (economy.has(player, amount)) {
-                player.sendMessage("§aJe hebt §2$" + amount + " §agestort!");
-                playSuccessSound(player);
-            } else {
-                player.sendMessage("§cJe hebt niet genoeg geld!");
-                playErrorSound(player);
+    private void handleCalculatorClick(Player player, ItemStack clicked, Inventory inventory) {
+        String itemName = clicked.getItemMeta().getDisplayName();
+        double current = currentAmount.getOrDefault(player.getUniqueId(), 0.0);
+
+        if (itemName.startsWith("§b")) {
+            double num = Double.parseDouble(itemName.substring(2));
+            current = (current * 10) + num;
+        } else if (itemName.startsWith("§a+")) {
+            String amountStr = itemName.substring(3).replace("$", "");
+            double amount = Double.parseDouble(amountStr);
+            current += amount;
+        } else switch (itemName) {
+            case "§cWissen" -> current = 0.0;
+            case "§aBevestigen" -> {
+                executeTransaction(player, current);
+                return;
             }
-            player.closeInventory();
-        }
-    }
-
-    private void handleWithdraw(Player player, String itemName) {
-        if (itemName.startsWith("§c$")) {
-            double amount = Double.parseDouble(itemName.substring(3));
-            if (economy.getBalance(player) >= amount) {
-                economy.depositPlayer(player, amount);
-                player.sendMessage("§cJe hebt §2$" + amount + " §cgehaald!");
-                playSuccessSound(player);
-            } else {
-                player.sendMessage("§cJe hebt niet genoeg geld!");
-                playErrorSound(player);
+            case "§cTerug" -> {
+                openMainMenu(player);
+                return;
             }
-            player.closeInventory();
+        }
+
+        currentAmount.put(player.getUniqueId(), current);
+        updateAmountDisplay(inventory, 4, current);
+        playClickSound(player);
+    }
+
+    private void executeTransaction(Player player, double amount) {
+        TransactionType type = transactionType.get(player.getUniqueId());
+        boolean success = false;
+
+        switch (type) {
+            case DEPOSIT -> {
+                if (economy.has(player, amount)) {
+                    economy.withdrawPlayer(player, amount);
+                    player.sendMessage("§aJe hebt §2$" + amount + " §agestort!");
+                    success = true;
+                } else {
+                    player.sendMessage("§cJe hebt niet genoeg geld!");
+                }
+            }
+            case WITHDRAW -> {
+                if (economy.getBalance(player) >= amount) {
+                    economy.depositPlayer(player, amount);
+                    player.sendMessage("§aJe hebt §2$" + amount + " §aopgenomen!");
+                    success = true;
+                } else {
+                    player.sendMessage("§cJe hebt niet genoeg geld op je rekening!");
+                }
+            }
+        }
+
+        if (success) {
+            playSuccessSound(player);
+            openMainMenu(player);
+        } else {
+            playErrorSound(player);
         }
     }
 
-    private void handleTransfer(Player player, String itemName) {
+    private void updateAmountDisplay(Inventory inventory, int slot, double amount) {
+        inventory.setItem(slot, createMenuItem(Material.GOLD_INGOT,
+                "§6Bedrag: §a$" + amount, "§7Huidig geselecteerd bedrag"));
+    }
+
+    private void openTransferMenu(Player player) {
+        Inventory menu = Bukkit.createInventory(null, 36, "§6Overmaken");
+
+        for (Player target : Bukkit.getOnlinePlayers()) {
+            if (target != player) {
+                menu.addItem(createMenuItem(Material.PLAYER_HEAD,
+                        "§e" + target.getName(), "§7Klik om geld over te maken"));
+            }
+        }
+
+        player.openInventory(menu);
+        playClickSound(player);
+    }
+
+    private void handleTransferClick(Player player, String itemName) {
         if (itemName.startsWith("§e")) {
             String targetName = itemName.substring(2);
             Player target = Bukkit.getPlayer(targetName);
             if (target != null) {
-                transferTarget.put(player.getUniqueId(), target.getUniqueId());
-                openTransferAmountMenu(player);
-            }
-        } else if (itemName.startsWith("§a$")) {
-            UUID targetUUID = transferTarget.get(player.getUniqueId());
-            if (targetUUID != null) {
-                Player target = Bukkit.getPlayer(targetUUID);
-                if (target != null) {
-                    double amount = Double.parseDouble(itemName.substring(3));
-                    if (economy.getBalance(player) >= amount) {
-                        economy.withdrawPlayer(player, amount);
-                        economy.depositPlayer(target, amount);
-                        player.sendMessage("§aJe hebt §2$" + amount + " §agetransferd naar §e" + target.getName() + "!");
-                        target.sendMessage("§aJe hebt §2$" + amount + " §agestort van §e" + player.getName() + "!");
-                        playSuccessSound(player);
-                        playSuccessSound(target);
-                    } else {
-                        player.sendMessage("§cJe hebt niet genoeg geld!");
-                        playErrorSound(player);
-                    }
-                }
-            }
-            player.closeInventory();
-            transferTarget.remove(player.getUniqueId());
-        }
-    }
-
-
-    private void openBankMenu(Player player) {
-
-        Inventory menu = Bukkit.createInventory(null, 27, "§6Bank Menu");
-
-        ItemStack deposit = createMenuItem(Material.EMERALD, "§aGeld Storten", "§7Klik om geld te storten");
-        ItemStack withdraw = createMenuItem(Material.REDSTONE, "§cGeld Opnemen", "§7Klik om geld op te nemen.");
-        ItemStack transfer = createMenuItem(Material.ENDER_PEARL, "§eGeld Overboeken", "§7Klik om geld over te maken.");
-        ItemStack balance = createMenuItem(Material.GOLD_INGOT, "§6Saldo Bekijken",
-                "§7Huidig saldo: §a$" + economy.getBalance(player));
-
-        menu.setItem(10, deposit);
-        menu.setItem(12, withdraw);
-        menu.setItem(14, transfer);
-        menu.setItem(16, balance);
-
-        player.openInventory(menu);
-    }
-
-    private void openDepositMenu(Player player){
-        Inventory menu = Bukkit.createInventory(null, 27, "§aStorten");
-
-        menu.setItem(10, createMenuItem(Material.EMERALD, "§a$10", "§7Klik om te storten"));
-        menu.setItem(12, createMenuItem(Material.EMERALD, "§a$100", "§7Klik om te storten"));
-        menu.setItem(14, createMenuItem(Material.EMERALD, "§a$1000", "§7Klik om te storten"));
-        menu.setItem(16, createMenuItem(Material.EMERALD, "§a$10000", "§7Klik om te storten"));
-
-        player.openInventory(menu);
-    }
-
-    private void openWithDrawMenu(Player player){
-        Inventory menu = Bukkit.createInventory(null, 27, "§cOpnemen");
-
-        menu.setItem(10, createMenuItem(Material.REDSTONE, "§c$10", "§7Klik om op te nemen"));
-        menu.setItem(12, createMenuItem(Material.REDSTONE, "§c$100", "§7Klik om op te nemen"));
-        menu.setItem(14, createMenuItem(Material.REDSTONE, "§c$1000", "§7Klik om op te nemen"));
-        menu.setItem(16, createMenuItem(Material.REDSTONE, "§c$10000", "§7Klik om op te nemen"));
-
-        player.openInventory(menu);
-    }
-
-    private void openTransferMenu(Player player){
-        Inventory menu = Bukkit.createInventory( null, 36, "§eOverboeken");
-        int slot = 0;
-
-        for(Player target : Bukkit.getOnlinePlayers()){
-            if(target != player){
-                menu.setItem(slot, createMenuItem(Material.PLAYER_HEAD, "§e" + target.getName(), "§7Klik om geld over te maken"));
-                slot++;
+                transactionType.put(player.getUniqueId(), TransactionType.TRANSFER);
+                openCalculator(player, TransactionType.TRANSFER);
             }
         }
-        player.openInventory(menu);
     }
 
-    private void openTransferAmountMenu(Player player) {
-        Inventory menu = Bukkit.createInventory(null, 27, "§eOverboeken");
-    menu.setItem(10, createMenuItem(Material.EMERALD, "§a$10", "§7Klik om over te maken"));
-    menu.setItem(12, createMenuItem(Material.EMERALD, "§a$100", "§7Klik om over te maken"));
-    menu.setItem(14, createMenuItem(Material.EMERALD, "§a$1000", "§7Klik om over te maken"));
-    menu.setItem(16, createMenuItem(Material.EMERALD, "§a$10000", "§7Klik om over te maken"));
-
-    player.openInventory(menu);
+    private void playClickSound(Player player) {
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
     }
 
-    private void showBalance(Player player){
-        double balance = economy.getBalance(player);
-        player.sendMessage("§6Je saldo: §a$" + balance);
-        playSuccessSound(player);
-    }
     private void playSuccessSound(Player player) {
-        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0F, 1.0F);
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
     }
+
     private void playErrorSound(Player player) {
-        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0F, 1.0F);
+        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
     }
 
     private ItemStack createMenuItem(Material material, String name, String... lore) {
