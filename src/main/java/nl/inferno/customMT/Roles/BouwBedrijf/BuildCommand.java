@@ -1,10 +1,7 @@
 package nl.inferno.customMT.Roles.BouwBedrijf;
 
-import com.sk89q.worldedit.bukkit.BukkitAdapter;
-import com.sk89q.worldguard.WorldGuard;
-import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
-import com.sk89q.worldguard.protection.flags.Flags;
-import com.sk89q.worldguard.protection.regions.RegionContainer;
+import nl.inferno.customMT.CustomMT;
+import nl.inferno.customMT.Manager.DutyManager;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
@@ -21,6 +18,13 @@ import java.util.UUID;
 
 public class BuildCommand implements CommandExecutor {
     private final Set<UUID> inBuildMode = new HashSet<>();
+    private final DutyManager dutyManager;
+    private final CustomMT plugin;
+
+    public BuildCommand(CustomMT plugin) {
+        this.plugin = plugin;
+        this.dutyManager = new DutyManager(plugin.getSql(), "build_duty");
+    }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -43,20 +47,18 @@ public class BuildCommand implements CommandExecutor {
         return true;
     }
 
-    private void enableBuildMode(Player player) {
+    public void enableBuildMode(Player player) {
         inBuildMode.add(player.getUniqueId());
+        dutyManager.saveInventory(player);
         player.getInventory().clear();
         player.setGameMode(GameMode.CREATIVE);
 
         ItemStack worldEdit = createBuildItem(Material.WOODEN_AXE, "§6WorldEdit Wand",
                 "§7Selecteer gebieden om te bewerken");
-
         ItemStack copy = createBuildItem(Material.COMPASS, "§aCopy Tool",
                 "§7Kopieer constructies");
-
         ItemStack paste = createBuildItem(Material.BLAZE_ROD, "§ePaste Tool",
                 "§7Plak gekopieerde constructies");
-
         ItemStack undo = createBuildItem(Material.BARRIER, "§cUndo",
                 "§7Maak laatste actie ongedaan");
 
@@ -65,19 +67,14 @@ public class BuildCommand implements CommandExecutor {
         player.getInventory().setItem(2, paste);
         player.getInventory().setItem(8, undo);
 
-        // WorldGuard override
-        RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
-        com.sk89q.worldguard.bukkit.WorldGuardPlugin worldGuard = WorldGuardPlugin.inst();
-        com.sk89q.worldguard.LocalPlayer localPlayer = worldGuard.wrapPlayer(player);
-        container.createQuery().testState(BukkitAdapter.adapt(player.getLocation()), localPlayer, Flags.BUILD);
-
         player.sendMessage("§aBouwmodus ingeschakeld!");
     }
 
-    private void disableBuildMode(Player player) {
+    public void disableBuildMode(Player player) {
         inBuildMode.remove(player.getUniqueId());
-        player.getInventory().clear();
         player.setGameMode(GameMode.SURVIVAL);
+        player.getInventory().clear();
+        dutyManager.restoreInventory(player);
         player.sendMessage("§cBouwmodus uitgeschakeld!");
     }
 
@@ -92,5 +89,9 @@ public class BuildCommand implements CommandExecutor {
 
     public boolean isInBuildMode(UUID uuid) {
         return inBuildMode.contains(uuid);
+    }
+
+    public CustomMT getPlugin() {
+        return plugin;
     }
 }

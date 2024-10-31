@@ -1,6 +1,7 @@
 package nl.inferno.customMT.Roles.Politie;
 
 import nl.inferno.customMT.CustomMT;
+import nl.inferno.customMT.Manager.DutyManager;
 import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
@@ -10,7 +11,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
-import org.bukkit.plugin.Plugin;
 
 import java.util.*;
 
@@ -18,20 +18,20 @@ public class PolitieDuty implements CommandExecutor {
     private final Set<UUID> inDuty = new HashSet<>();
     private final Set<UUID> handcuffedPlayers = new HashSet<>();
     private final Map<UUID, UUID> handcuffedBy = new HashMap<>();
+    private final DutyManager dutyManager;
     private final CustomMT plugin;
-
 
     public PolitieDuty(CustomMT plugin) {
         this.plugin = plugin;
+        this.dutyManager = new DutyManager(plugin.getSql(), "police_duty");
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player)) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("§cDit command kan alleen door spelers worden gebruikt!");
             return true;
         }
-
-        Player player = (Player) sender;
 
         if (!player.hasPermission("custommt.police")) {
             player.sendMessage("§cJe hebt geen toegang tot dit command!");
@@ -47,8 +47,9 @@ public class PolitieDuty implements CommandExecutor {
         return true;
     }
 
-    private void addToDuty(Player player) {
+    public void addToDuty(Player player) {
         inDuty.add(player.getUniqueId());
+        dutyManager.saveInventory(player);
         player.getInventory().clear();
 
         ItemStack helmet = new ItemStack(Material.LEATHER_HELMET);
@@ -78,9 +79,10 @@ public class PolitieDuty implements CommandExecutor {
         player.sendMessage("§aJe bent nu in dienst!");
     }
 
-    private void removeFromDuty(Player player) {
+    public void removeFromDuty(Player player) {
         inDuty.remove(player.getUniqueId());
         player.getInventory().clear();
+        dutyManager.restoreInventory(player);
         player.sendMessage("§cJe bent nu uit dienst!");
     }
 
@@ -106,9 +108,7 @@ public class PolitieDuty implements CommandExecutor {
         } else {
             handcuffedPlayers.add(uuid);
         }
-
     }
-
 
     public void setCuffer(UUID target, UUID officer) {
         handcuffedBy.put(target, officer);
@@ -118,8 +118,7 @@ public class PolitieDuty implements CommandExecutor {
         return handcuffedBy.get(target);
     }
 
-
-    public Plugin getPlugin() {
+    public CustomMT getPlugin() {
         return plugin;
     }
 }

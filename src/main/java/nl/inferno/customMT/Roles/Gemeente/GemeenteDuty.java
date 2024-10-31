@@ -1,6 +1,9 @@
 package nl.inferno.customMT.Roles.Gemeente;
 
+import nl.inferno.customMT.CustomMT;
+import nl.inferno.customMT.Manager.DutyManager;
 import org.bukkit.Color;
+import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -17,6 +20,13 @@ import java.util.UUID;
 
 public class GemeenteDuty implements CommandExecutor {
     private final Set<UUID> inDuty = new HashSet<>();
+    private final DutyManager dutyManager;
+    private final CustomMT plugin;
+
+    public GemeenteDuty(CustomMT plugin) {
+        this.plugin = plugin;
+        this.dutyManager = new DutyManager(plugin.getSql(), "gemeente_duty");
+    }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -39,11 +49,12 @@ public class GemeenteDuty implements CommandExecutor {
         return true;
     }
 
-    private void addToDuty(Player player) {
+    public void addToDuty(Player player) {
         inDuty.add(player.getUniqueId());
+        dutyManager.saveInventory(player);
         player.getInventory().clear();
+        player.setGameMode(GameMode.CREATIVE);
 
-        // Gemeente uniform
         ItemStack helmet = new ItemStack(Material.LEATHER_HELMET);
         ItemStack chestplate = new ItemStack(Material.LEATHER_CHESTPLATE);
         ItemStack leggings = new ItemStack(Material.LEATHER_LEGGINGS);
@@ -62,15 +73,16 @@ public class GemeenteDuty implements CommandExecutor {
         player.getInventory().setLeggings(leggings);
         player.getInventory().setBoots(boots);
 
-        // Gemeente tools
-// Inside addToDuty method
         ItemStack plotManager = createCustomItem(
                 Material.BOOK,
                 "§6Plot Manager",
-                "§7Rechtsklik om plots te beheren"
+                "§7Rechtsklik om plots te beheren",
+                "§7- Voeg eigenaren toe",
+                "§7- Verwijder eigenaren",
+                "§7- Beheer plot rechten"
         );
 
-        ItemStack plotSelector = createCustomItem(
+        ItemStack plotWand = createCustomItem(
                 Material.GOLDEN_AXE,
                 "§6Plot Selector",
                 "§7Linkerclick: Selecteer punt 1",
@@ -85,21 +97,23 @@ public class GemeenteDuty implements CommandExecutor {
 
         ItemStack plotCreate = createCustomItem(
                 Material.EMERALD,
-                "§aPlot Aanmaken",
+                "§6Plot Aanmaken",
                 "§7Rechtsklik om een plot aan te maken"
         );
 
         player.getInventory().setItem(0, plotManager);
-        player.getInventory().setItem(1, plotSelector);
+        player.getInventory().setItem(1, plotWand);
         player.getInventory().setItem(2, plotInfo);
         player.getInventory().setItem(3, plotCreate);
 
         player.sendMessage("§aJe bent nu in dienst bij de gemeente!");
     }
 
-    private void removeFromDuty(Player player) {
+    public void removeFromDuty(Player player) {
         inDuty.remove(player.getUniqueId());
+        player.setGameMode(GameMode.SURVIVAL);
         player.getInventory().clear();
+        dutyManager.restoreInventory(player);
         player.sendMessage("§cJe bent nu uit dienst!");
     }
 
@@ -114,5 +128,18 @@ public class GemeenteDuty implements CommandExecutor {
 
     public boolean isInDuty(UUID uuid) {
         return inDuty.contains(uuid);
+    }
+
+    public void openPlotManager(Player player) {
+        GemeenteGui.openPlotManager(player);
+    }
+
+    public void openAdministrationMenu(Player player) {
+//Todo open administration menu
+        //        GemeenteGui.openAdministrationMenu(player);
+    }
+
+    public CustomMT getPlugin() {
+        return plugin;
     }
 }

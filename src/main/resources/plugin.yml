@@ -15,4 +15,5 @@ commands:
     description: Staff Mode (Only for Staff)
   build:
     description: Build Mode (Only for Staff)
-    
+  bank:
+    description: Bank duty
